@@ -701,6 +701,12 @@ pub const NOTIFY_ON_RELEASE: u32 = 1 << 1;
 pub const NOTIFY_ON_DISPUTE: u32 = 1 << 2;
 pub const NOTIFY_ON_EXPIRATION: u32 = 1 << 3;
 
+/// Mask covering all currently defined notification preference bits.
+/// Bits outside this mask are reserved; passing them to
+/// `set_notification_preferences` returns `Error::Unauthorized`.
+pub const NOTIFICATION_PREFS_MASK: u32 =
+    NOTIFY_ON_LOCK | NOTIFY_ON_RELEASE | NOTIFY_ON_DISPUTE | NOTIFY_ON_EXPIRATION;
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EscrowMetadata {
@@ -1498,6 +1504,77 @@ impl BountyEscrowContract {
             ordered = next;
         }
         ordered
+    }
+
+    /// Returns the notification preference bitmask for a bounty.
+    ///
+    /// # Errors
+    /// * `BountyNotFound` — metadata for `bounty_id` does not exist.
+    pub fn get_notification_preferences(env: Env, bounty_id: u64) -> Result<u32, Error> {
+        let metadata = env
+            .storage()
+            .persistent()
+            .get::<DataKey, EscrowMetadata>(&DataKey::Metadata(bounty_id))
+            .ok_or(Error::BountyNotFound)?;
+        Ok(metadata.notification_prefs)
+    }
+
+    /// Sets the notification preference bitmask for a bounty (admin only).
+    ///
+    /// `notification_prefs` is a bitfield combining [`NOTIFY_ON_LOCK`],
+    /// [`NOTIFY_ON_RELEASE`], [`NOTIFY_ON_DISPUTE`], and
+    /// [`NOTIFY_ON_EXPIRATION`]. Bits outside this mask are rejected with
+    /// [`Error::Unauthorized`].
+    ///
+    /// # Events
+    /// Emits `NotificationPreferencesUpdated` with the previous and new
+    /// preference bitmasks.
+    ///
+    /// # Errors
+    /// * `NotInitialized` — contract not yet initialised.
+    /// * `BountyNotFound` — metadata for `bounty_id` does not exist.
+    /// * `Unauthorized`  — caller is not admin, or `notification_prefs` contains reserved bits.
+    pub fn set_notification_preferences(
+        env: Env,
+        bounty_id: u64,
+        notification_prefs: u32,
+    ) -> Result<(), Error> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)?;
+        admin.require_auth();
+
+        if notification_prefs & !NOTIFICATION_PREFS_MASK != 0 {
+            return Err(Error::Unauthorized);
+        }
+
+        let mut metadata = env
+            .storage()
+            .persistent()
+            .get::<DataKey, EscrowMetadata>(&DataKey::Metadata(bounty_id))
+            .ok_or(Error::BountyNotFound)?;
+
+        let previous_prefs = metadata.notification_prefs;
+        metadata.notification_prefs = notification_prefs;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Metadata(bounty_id), &metadata);
+
+        events::emit_notification_preferences_updated(
+            &env,
+            events::NotificationPreferencesUpdated {
+                version: EVENT_VERSION_V2,
+                bounty_id,
+                previous_prefs,
+                new_prefs: notification_prefs,
+                admin: admin.clone(),
+                timestamp: env.ledger().timestamp(),
+            },
+        );
+
+        Ok(())
     }
 
     /// Initialize the contract with the admin address and the token address (XLM).
