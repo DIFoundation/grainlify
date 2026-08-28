@@ -6589,6 +6589,8 @@ impl BountyEscrowContract {
             },
         );
 
+        // INV-2: Verify aggregate balance matches token balance after partial release
+        multitoken_invariants::assert_after_disbursement(&env);
         Ok(())
     }
 
@@ -6697,6 +6699,7 @@ impl BountyEscrowContract {
 
         // GUARD: release reentrancy lock
         reentrancy_guard::release(&env);
+        multitoken_invariants::assert_after_disbursement(&env);
         Ok(())
     }
 
@@ -7090,6 +7093,8 @@ impl BountyEscrowContract {
             .persistent()
             .set(&DataKey::RenewalHistory(bounty_id), &history);
 
+        // INV-2: Verify aggregate balance matches token balance after anon refund
+        multitoken_invariants::assert_after_disbursement(&env);
         Ok(())
     }
 
@@ -7268,6 +7273,8 @@ impl BountyEscrowContract {
                 .set(&DataKey::AnonymousResolver, &addr),
             None => env.storage().instance().remove(&DataKey::AnonymousResolver),
         }
+        // INV-2: Verify aggregate balance matches token balance after capability refund
+        multitoken_invariants::assert_after_disbursement(&env);
         Ok(())
     }
 
@@ -7411,6 +7418,7 @@ impl BountyEscrowContract {
 
         // GUARD: release reentrancy lock
         reentrancy_guard::release(&env);
+        multitoken_invariants::assert_after_disbursement(&env);
         Ok(())
     }
 
@@ -7529,6 +7537,7 @@ impl BountyEscrowContract {
         );
 
         reentrancy_guard::release(&env);
+        multitoken_invariants::assert_after_disbursement(&env);
         Ok(())
     }
 
@@ -7819,6 +7828,7 @@ impl BountyEscrowContract {
         }
 
         let locked_count = result?;
+        multitoken_invariants::assert_after_lock(&env);
         reentrancy_guard::release(&env);
         Ok(locked_count)
     }
@@ -8056,6 +8066,7 @@ impl BountyEscrowContract {
         }
 
         let count = result?;
+        multitoken_invariants::assert_after_disbursement(&env);
         reentrancy_guard::release(&env);
         Ok(count)
     }
@@ -8361,6 +8372,7 @@ impl BountyEscrowContract {
             Ok(())
         })();
 
+        multitoken_invariants::assert_after_disbursement(&env);
         reentrancy_guard::release(&env);
         result
     }
