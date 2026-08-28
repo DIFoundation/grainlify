@@ -53,6 +53,8 @@ mod test_multi_token_fees;
 #[cfg(test)]
 mod test_reentrancy_guard;
 #[cfg(test)]
+mod test_compatibility;
+#[cfg(test)]
 mod test_admin_rotation;
 #[cfg(test)]
 mod test_archival_ttl;
@@ -1803,7 +1805,8 @@ impl BountyEscrowContract {
                 bounty_id,
                 previous_prefs,
                 new_prefs: notification_prefs,
-                admin: admin.clone(),
+                actor: admin.clone(),
+                created: false,
                 timestamp: env.ledger().timestamp(),
             },
         );
