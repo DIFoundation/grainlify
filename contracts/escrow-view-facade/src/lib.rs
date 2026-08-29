@@ -34,13 +34,17 @@
 //! - `query::program_escrow` mirrors `ProgramDelegateInfo` from `program-escrow`.
 //!   Field additions or reorders must be applied to the binding simultaneously.
 
-pub mod query;
-pub mod types;
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
+
+mod bounty_escrow {
+    include!("bounty_escrow_bindings.rs");
+}
+
+mod query;
+mod types;
 
 pub use query::{EscrowDataClient, QueryCache, QueryCacheKey};
 pub use types::{EscrowStatus, EscrowSummary, UserPortfolio};
-
-use soroban_sdk::{contract, contractimpl, Address, Env, String, Vec};
 
 /// The Escrow View Facade — a read-only aggregation layer for escrow data.
 #[contract]
@@ -82,8 +86,15 @@ impl EscrowViewFacade {
         env: Env,
         program_contract: Address,
         program_id: String,
-    ) -> Vec<query::program_escrow::ProgramDelegateInfo> {
-        query::query_all_delegates(&env, &program_contract, &program_id)
+    ) -> Vec<program_escrow::ProgramDelegateInfo> {
+        let client = query::program_escrow::Client::new(&env, &program_contract);
+        let delegates_res = client.try_query_all_delegates(&program_id);
+
+        if let Ok(Ok(delegates)) = delegates_res {
+            delegates
+        } else {
+            Vec::new(&env)
+        }
     }
 
     /// Query the payout history for a specific recipient within a program.
@@ -94,8 +105,15 @@ impl EscrowViewFacade {
         program_contract: Address,
         program_id: String,
         recipient: Address,
-    ) -> Vec<query::program_escrow::PayoutRecord> {
-        query::query_recipient_history(&env, &program_contract, &program_id, &recipient)
+    ) -> Vec<program_escrow::PayoutRecord> {
+        let client = query::program_escrow::Client::new(&env, &program_contract);
+        let result = client.try_query_recipient_history(&program_id, &recipient);
+
+        if let Ok(Ok(records)) = result {
+            records
+        } else {
+            Vec::new(&env)
+        }
     }
 
     /// Fetch [`query::ProgramData`] for `program_id` on `escrow`, using the
