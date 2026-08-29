@@ -65,6 +65,8 @@ mod test_reentrancy_malicious_token;
 // what they assert. Out of scope for reentrancy coverage — left for the
 // module's owner to fix and re-enable.
 #[cfg(test)]
+mod test_timelock;
+#[cfg(test)]
 mod test_archival_ttl;
 #[cfg(test)]
 mod test_batch_soa_benchmark;
